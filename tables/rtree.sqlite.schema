@@ -1,4 +1,4 @@
-CREATE VIRTUAL TABLE %s USING rtree (
+CREATE VIRTUAL TABLE {{ .Name }} USING rtree (
 	id,
 	min_x,
 	max_x,
