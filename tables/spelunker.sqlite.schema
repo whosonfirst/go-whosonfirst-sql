@@ -1,0 +1,9 @@
+CREATE TABLE {{ .Name }} (
+	id INTEGER NOT NULL,
+	alt_label TEXT,	
+	body JSON,
+	lastmodified INTEGER
+);
+
+CREATE UNIQUE INDEX `{{ .Name }}_id_alt` ON {{ .Name }} (`id`, `alt_label`);
+CREATE INDEX `{{ .Name }}_lastmodified` ON {{ .Name }} (`lastmodified`);
