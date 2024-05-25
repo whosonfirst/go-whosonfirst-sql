@@ -5,5 +5,5 @@ CREATE TABLE {{ .Name }} (
 	lastmodified INTEGER
 );
 
-CREATE UNIQUE INDEX `by_other` ON {{ .Name }} (`id`, `other_source`);
-CREATE INDEX `other_id` ON {{ .Name }} (`other_source`, `other_id`);
+CREATE UNIQUE INDEX `{{ .Name }}_by_other` ON {{ .Name }} (`id`, `other_source`);
+CREATE INDEX `{{ .Name }}_other_id` ON {{ .Name }} (`other_source`, `other_id`);

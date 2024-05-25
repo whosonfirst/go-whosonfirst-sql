@@ -13,10 +13,10 @@ CREATE TABLE {{ .Name }} (
        lastmodified INTEGER
 );
 
-CREATE INDEX names_by_lastmod ON {{ .Name }} (lastmodified);
-CREATE INDEX names_by_country ON {{ .Name }} (country,privateuse,placetype);
-CREATE INDEX names_by_language ON {{ .Name }} (language,privateuse,placetype);
-CREATE INDEX names_by_placetype ON {{ .Name }} (placetype,country,privateuse);
-CREATE INDEX names_by_name ON {{ .Name }} (name, placetype, country);
-CREATE INDEX names_by_name_private ON {{ .Name }} (name, privateuse, placetype, country);
-CREATE INDEX names_by_wofid ON {{ .Name }} (id);
+CREATE INDEX {{ .Name }}_by_lastmod ON {{ .Name }} (lastmodified);
+CREATE INDEX {{ .Name }}_by_country ON {{ .Name }} (country,privateuse,placetype);
+CREATE INDEX {{ .Name }}_by_language ON {{ .Name }} (language,privateuse,placetype);
+CREATE INDEX {{ .Name }}_by_placetype ON {{ .Name }} (placetype,country,privateuse);
+CREATE INDEX {{ .Name }}_by_name ON {{ .Name }} (name, placetype, country);
+CREATE INDEX {{ .Name }}_by_name_private ON {{ .Name }} (name, privateuse, placetype, country);
+CREATE INDEX {{ .Name }}_by_wofid ON {{ .Name }} (id);

@@ -5,4 +5,4 @@ CREATE TABLE {{ .Name }} (
 	lastmodified INTEGER
 );
 
-CREATE UNIQUE INDEX `by_ancestor` ON {{ .Name }} (`id`, `ancestor_id`);
+CREATE UNIQUE INDEX `{{ .Name }}_by_ancestor` ON {{ .Name }} (`id`, `ancestor_id`);

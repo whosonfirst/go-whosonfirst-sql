@@ -6,6 +6,6 @@ CREATE TABLE {{ .Name }} (
 	lastmodified INTEGER
 );
 
-CREATE UNIQUE INDEX properties_by_id ON {{ .Name }} (id, alt_label);
-CREATE INDEX properties_by_alt ON {{ .Name }} (id, is_alt, alt_label);
-CREATE INDEX properties_by_lastmod ON {{ .Name }} (lastmodified);
+CREATE UNIQUE INDEX {{ .Name }}_by_id ON {{ .Name }} (id, alt_label);
+CREATE INDEX {{ .Name }}_by_alt ON {{ .Name }} (id, is_alt, alt_label);
+CREATE INDEX {{ .Name }}_by_lastmod ON {{ .Name }} (lastmodified);
