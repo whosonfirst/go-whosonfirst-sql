@@ -1,5 +1,5 @@
 CREATE TABLE {{ .Name }} (
-	id BIGINT(2) PRIMARY KEY,
+	id BIGINT(20) PRIMARY KEY,
 	body JSON,
 	lastmodified BIGINT(20) NOT NULL
 );
