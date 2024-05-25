@@ -1,0 +1,5 @@
+CREATE TABLE {{ .Name }} (
+	id INTEGER PRIMARY KEY,
+	body JSON,
+	lastmodified INTEGER
+);
