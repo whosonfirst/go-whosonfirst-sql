@@ -5,6 +5,7 @@ go 1.23.3
 require (
 	github.com/paulmach/orb v0.11.1
 	github.com/sfomuseum/go-database v0.0.6
+	github.com/sfomuseum/go-flags v0.10.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/whosonfirst/go-reader v1.0.2
 	github.com/whosonfirst/go-whosonfirst-feature v0.0.28
