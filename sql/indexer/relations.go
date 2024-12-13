@@ -2,19 +2,19 @@ package indexer
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"log/slog"
+	"database/sql"
 	"sync"
 
-	"github.com/sfomuseum/go-database"
 	"github.com/tidwall/gjson"
 	"github.com/whosonfirst/go-reader"
 	"github.com/whosonfirst/go-whosonfirst-feature/geometry"
 	"github.com/whosonfirst/go-whosonfirst-feature/properties"
-	wof_tables "github.com/whosonfirst/go-whosonfirst-sql/tables"
+	wof_tables "github.com/whosonfirst/go-whosonfirst-database/sql/tables"
 	"github.com/whosonfirst/go-whosonfirst-uri"
+	"github.com/sfomuseum/go-database"
 )
 
 // LoadRecordFuncOptions is a struct to define options when loading Who's On First feature records.

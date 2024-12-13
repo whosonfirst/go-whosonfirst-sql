@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/whosonfirst/go-whosonfirst-sql/app/index"
+	"github.com/whosonfirst/go-whosonfirst-database/app/sql/index"
 )
 
 func main() {

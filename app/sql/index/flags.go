@@ -31,7 +31,6 @@ var supersedes bool
 var spatial_tables bool
 var spelunker_tables bool
 
-var live_hard bool
 var timings bool
 var optimize bool
 
@@ -55,7 +54,7 @@ func DefaultFlagSet() *flag.FlagSet {
 
 	fs.StringVar(&iterator_uri, "iterator-uri", "repo://", iterator_desc)
 
-	fs.StringVar(&db_uri, "database-uri", "modernc://mem", "")
+	fs.StringVar(&db_uri, "database-uri", "", "A URI in the form of 'sql://{DATABASE_SQL_ENGINE}?dsn={DATABASE_SQL_DSN}'. For example: sql://sqlite3?dsn=test.db")
 
 	fs.BoolVar(&all, "all", false, "Index all tables (except the 'search' and 'geometries' tables which you need to specify explicitly)")
 	fs.BoolVar(&ancestors, "ancestors", false, "Index the 'ancestors' tables")
@@ -73,7 +72,6 @@ func DefaultFlagSet() *flag.FlagSet {
 	fs.BoolVar(&spatial_tables, "spatial-tables", false, "If true then index the necessary tables for use with the whosonfirst/go-whosonfirst-spatial-sqlite package.")
 	fs.BoolVar(&spelunker_tables, "spelunker-tables", false, "If true then index the necessary tables for use with the whosonfirst/go-whosonfirst-spelunker packages")
 
-	fs.BoolVar(&live_hard, "live-hard-die-fast", true, "Enable various performance-related pragmas at the expense of possible (unlikely) database corruption")
 	fs.BoolVar(&timings, "timings", false, "Display timings during and after indexing")
 	fs.BoolVar(&optimize, "optimize", true, "Attempt to optimize the database before closing connection")
 

@@ -13,8 +13,8 @@ import (
 	"github.com/sfomuseum/go-database"
 	"github.com/sfomuseum/go-flags/flagset"
 	"github.com/whosonfirst/go-reader"
-	"github.com/whosonfirst/go-whosonfirst-sql/indexer"
-	"github.com/whosonfirst/go-whosonfirst-sql/tables"
+	"github.com/whosonfirst/go-whosonfirst-database/sql/indexer"
+	"github.com/whosonfirst/go-whosonfirst-database/sql/tables"
 )
 
 const index_alt_all string = "*"
@@ -94,22 +94,6 @@ func RunWithFlagSet(ctx context.Context, fs *flag.FlagSet) error {
 		}
 	}()
 
-	// optimize query performance
-	// https://www.sqlite.org/pragma.html#pragma_optimize
-	if optimize {
-
-		defer func() {
-
-			_, err = db.Exec("PRAGMA optimize")
-
-			if err != nil {
-				logger.Error("Failed to optimize", "error", err)
-				return
-			}
-		}()
-
-	}
-
 	switch database.Driver(db) {
 	case "sqlite":
 
@@ -119,6 +103,23 @@ func RunWithFlagSet(ctx context.Context, fs *flag.FlagSet) error {
 		if err != nil {
 			return fmt.Errorf("Failed to configure SQLite pragma, %w", err)
 		}
+
+		// optimize query performance
+		// https://www.sqlite.org/pragma.html#pragma_optimize
+		if optimize {
+			
+			defer func() {
+				
+				_, err = db.Exec("PRAGMA optimize")
+				
+				if err != nil {
+					logger.Error("Failed to optimize", "error", err)
+					return
+				}
+			}()
+			
+		}
+		
 	}
 
 	to_index := make([]database.Table, 0)

@@ -1,6 +1,6 @@
-# go-whosonfirst-sql
+# go-whosonfirst-database
 
-Go package implementing common properties for SQL-based Who's On First databases
+Go package implementing common properties and methods working with Who's On First databases
 
 ## Documentation
 

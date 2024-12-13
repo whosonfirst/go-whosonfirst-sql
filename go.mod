@@ -1,4 +1,4 @@
-module github.com/whosonfirst/go-whosonfirst-sql
+module github.com/whosonfirst/go-whosonfirst-database
 
 go 1.23.3
 

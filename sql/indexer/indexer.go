@@ -60,6 +60,14 @@ func NewIndexer(opts *IndexerOptions) (*Indexer, error) {
 		logger := slog.Default()
 		logger = logger.With("path", path)
 
+		/*
+			t1 := time.Now()
+
+			defer func() {
+				logger.Debug("Time to index record", "time", time.Since(t1))
+			}()
+		*/
+
 		record, err := record_func(ctx, path, r, args...)
 
 		if err != nil {
@@ -68,6 +76,7 @@ func NewIndexer(opts *IndexerOptions) (*Indexer, error) {
 		}
 
 		if record == nil {
+			logger.Debug("Record func returned nil")
 			return nil
 		}
 
@@ -93,8 +102,6 @@ func NewIndexer(opts *IndexerOptions) (*Indexer, error) {
 
 			n := t.Name()
 
-			mu.Lock()
-
 			_, ok := table_timings[n]
 
 			if ok {
@@ -102,8 +109,6 @@ func NewIndexer(opts *IndexerOptions) (*Indexer, error) {
 			} else {
 				table_timings[n] = t2
 			}
-
-			mu.Unlock()
 		}
 
 		if opts.PostIndexFunc != nil {
@@ -127,12 +132,6 @@ func NewIndexer(opts *IndexerOptions) (*Indexer, error) {
 	}
 
 	return &i, nil
-}
-
-// IndexPaths is deprecated and has been superseded by the `IndexURIs` method.
-func (idx *Indexer) IndexPaths(ctx context.Context, iterator_uri string, uris []string) error {
-	// idx.Logger.Println("The IndexPaths method is deprecated. Please use IndexURIs instead.")
-	return idx.IndexURIs(ctx, iterator_uri, uris...)
 }
 
 // IndexURIs will index records returned by the `whosonfirst/go-whosonfirst-iterate` instance for 'uris',
