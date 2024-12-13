@@ -2,7 +2,7 @@
 
 Go package implementing common properties for SQL-based Who's On First databases
 
-## Documentation
+## Deprecation notice (December 2024)
 
-Documentation is incomplete at this time.
+This package has been deprecated. It has been superseded by the [whosonfirst/go-whosonfirst-database](https://github.com/whosonfirst/go-whosonfirst-database/) package.
 
