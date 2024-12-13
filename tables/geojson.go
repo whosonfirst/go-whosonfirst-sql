@@ -1,5 +1,15 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+)
+
 const GEOJSON_TABLE_NAME string = "geojson"
 
 type GeoJSONTableOptions struct {
@@ -18,7 +28,8 @@ func DefaultGeoJSONTableOptions() (*GeoJSONTableOptions, error) {
 }
 
 type GeoJSONTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name    string
 	options *GeoJSONTableOptions
 }
@@ -29,7 +40,7 @@ type GeoJSONRow struct {
 	LastModified int64
 }
 
-func NewGeoJSONTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewGeoJSONTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	opts, err := DefaultGeoJSONTableOptions()
 
@@ -40,7 +51,7 @@ func NewGeoJSONTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlit
 	return NewGeoJSONTableWithDatabaseAndOptions(ctx, db, opts)
 }
 
-func NewGeoJSONTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Database, opts *GeoJSONTableOptions) (sqlite.Table, error) {
+func NewGeoJSONTableWithDatabaseAndOptions(ctx context.Context, db *sql.DB, opts *GeoJSONTableOptions) (database.Table, error) {
 
 	t, err := NewGeoJSONTableWithOptions(ctx, opts)
 
@@ -57,7 +68,7 @@ func NewGeoJSONTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Databa
 	return t, nil
 }
 
-func NewGeoJSONTable(ctx context.Context) (sqlite.Table, error) {
+func NewGeoJSONTable(ctx context.Context) (database.Table, error) {
 
 	opts, err := DefaultGeoJSONTableOptions()
 
@@ -68,10 +79,10 @@ func NewGeoJSONTable(ctx context.Context) (sqlite.Table, error) {
 	return NewGeoJSONTableWithOptions(ctx, opts)
 }
 
-func NewGeoJSONTableWithOptions(ctx context.Context, opts *GeoJSONTableOptions) (sqlite.Table, error) {
+func NewGeoJSONTableWithOptions(ctx context.Context, opts *GeoJSONTableOptions) (database.Table, error) {
 
 	t := GeoJSONTable{
-		name:    sql_tables.GEOJSON_TABLE_NAME,
+		name:    GEOJSON_TABLE_NAME,
 		options: opts,
 	}
 
@@ -82,21 +93,20 @@ func (t *GeoJSONTable) Name() string {
 	return t.name
 }
 
-func (t *GeoJSONTable) Schema() string {
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.GEOJSON_TABLE_NAME)
-	return schema
+func (t *GeoJSONTable) Schema(db *sql.DB) (string, error) {
+	return LoadSchema(db, GEOJSON_TABLE_NAME)
 }
 
-func (t *GeoJSONTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
+func (t *GeoJSONTable) InitializeTable(ctx context.Context, db *sql.DB) error {
 
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
-func (t *GeoJSONTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *GeoJSONTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *GeoJSONTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *GeoJSONTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	is_alt := alt.IsAlt(f)
 
@@ -129,16 +139,10 @@ func (t *GeoJSONTable) IndexFeature(ctx context.Context, db sqlite.Database, f [
 
 	lastmod := properties.LastModified(f)
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.Begin()
 
 	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
-
-	if err != nil {
-		return BeginTransactionError(t, err)
+		return database.BeginTransactionError(t, err)
 	}
 
 	sql := fmt.Sprintf(`INSERT OR REPLACE INTO %s (
@@ -150,7 +154,7 @@ func (t *GeoJSONTable) IndexFeature(ctx context.Context, db sqlite.Database, f [
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -160,13 +164,13 @@ func (t *GeoJSONTable) IndexFeature(ctx context.Context, db sqlite.Database, f [
 	_, err = stmt.Exec(id, str_body, source, is_alt, alt_label, lastmod)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil

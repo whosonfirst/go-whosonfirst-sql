@@ -1,13 +1,26 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+	"github.com/whosonfirst/go-whosonfirst-names/tags"	
+)
+
 const SEARCH_TABLE_NAME string = "search"
 
 type SearchTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name string
 }
 
-func NewSearchTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewSearchTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	t, err := NewSearchTable(ctx)
 
@@ -24,34 +37,33 @@ func NewSearchTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite
 	return t, nil
 }
 
-func NewSearchTable(ctx context.Context) (sqlite.Table, error) {
+func NewSearchTable(ctx context.Context) (database.Table, error) {
 
 	t := SearchTable{
-		name: sql_tables.SEARCH_TABLE_NAME,
+		name: SEARCH_TABLE_NAME,
 	}
 
 	return &t, nil
 }
 
-func (t *SearchTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
+func (t *SearchTable) InitializeTable(ctx context.Context, db *sql.DB) error {
 
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
 func (t *SearchTable) Name() string {
 	return t.name
 }
 
-func (t *SearchTable) Schema() string {
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.SEARCH_TABLE_NAME)
-	return schema
+func (t *SearchTable) Schema(db *sql.DB) (string, error) {
+	return LoadSchema(db, SEARCH_TABLE_NAME)
 }
 
-func (t *SearchTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *SearchTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *SearchTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *SearchTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	if alt.IsAlt(f) {
 		return nil
@@ -112,7 +124,7 @@ func (t *SearchTable) IndexFeature(ctx context.Context, db sqlite.Database, f []
 		lt, err := tags.NewLangTag(tag)
 
 		if err != nil {
-			return WrapError(t, fmt.Errorf("Failed to create new lang tag for '%s', %w", tag, err))
+			return database.WrapError(t, fmt.Errorf("Failed to create new lang tag for '%s', %w", tag, err))
 		}
 
 		possible := make([]string, 0)
@@ -169,22 +181,16 @@ func (t *SearchTable) IndexFeature(ctx context.Context, db sqlite.Database, f []
 		is_current.Flag(), is_ceased.Flag(), is_deprecated.Flag(), is_superseded.Flag(),
 	}
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.Begin()
 
 	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
-
-	if err != nil {
-		return BeginTransactionError(t, err)
+		return database.BeginTransactionError(t, err)
 	}
 
 	s, err := tx.Prepare(fmt.Sprintf("DELETE FROM %s WHERE id = ?", t.Name()))
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer s.Close()
@@ -192,13 +198,13 @@ func (t *SearchTable) IndexFeature(ctx context.Context, db sqlite.Database, f []
 	_, err = s.Exec(id)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -206,13 +212,13 @@ func (t *SearchTable) IndexFeature(ctx context.Context, db sqlite.Database, f []
 	_, err = stmt.Exec(args...)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil

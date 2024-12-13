@@ -1,5 +1,17 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/paulmach/orb/encoding/wkt"	
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+	"github.com/whosonfirst/go-whosonfirst-feature/geometry"	
+)
+
 const GEOMETRIES_TABLE_NAME string = "geometries"
 
 type GeometriesTableOptions struct {
@@ -16,7 +28,8 @@ func DefaultGeometriesTableOptions() (*GeometriesTableOptions, error) {
 }
 
 type GeometriesTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name    string
 	options *GeometriesTableOptions
 }
@@ -27,7 +40,7 @@ type GeometriesRow struct {
 	LastModified int64
 }
 
-func NewGeometriesTable(ctx context.Context) (sqlite.Table, error) {
+func NewGeometriesTable(ctx context.Context) (database.Table, error) {
 
 	opts, err := DefaultGeometriesTableOptions()
 
@@ -38,17 +51,17 @@ func NewGeometriesTable(ctx context.Context) (sqlite.Table, error) {
 	return NewGeometriesTableWithOptions(ctx, opts)
 }
 
-func NewGeometriesTableWithOptions(ctx context.Context, opts *GeometriesTableOptions) (sqlite.Table, error) {
+func NewGeometriesTableWithOptions(ctx context.Context, opts *GeometriesTableOptions) (database.Table, error) {
 
 	t := GeometriesTable{
-		name:    sql_tables.GEOMETRIES_TABLE_NAME,
+		name:    GEOMETRIES_TABLE_NAME,
 		options: opts,
 	}
 
 	return &t, nil
 }
 
-func NewGeometriesTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewGeometriesTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	opts, err := DefaultGeometriesTableOptions()
 
@@ -59,7 +72,7 @@ func NewGeometriesTableWithDatabase(ctx context.Context, db sqlite.Database) (sq
 	return NewGeometriesTableWithDatabaseAndOptions(ctx, db, opts)
 }
 
-func NewGeometriesTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Database, opts *GeometriesTableOptions) (sqlite.Table, error) {
+func NewGeometriesTableWithDatabaseAndOptions(ctx context.Context, db *sql.DB, opts *GeometriesTableOptions) (database.Table, error) {
 
 	t, err := NewGeometriesTableWithOptions(ctx, opts)
 
@@ -80,7 +93,7 @@ func (t *GeometriesTable) Name() string {
 	return t.name
 }
 
-func (t *GeometriesTable) Schema() string {
+func (t *GeometriesTable) Schema(db *sql.DB) (string, error) {
 
 	// really this should probably be the SPR table + geom but
 	// let's just get this working first and then make it fancy
@@ -92,20 +105,19 @@ func (t *GeometriesTable) Schema() string {
 	// Note the InitSpatialMetaData() command because this:
 	// https://stackoverflow.com/questions/17761089/cannot-create-column-with-spatialite-unexpected-metadata-layout
 
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.GEOMETRIES_TABLE_NAME)
-	return schema
+	return LoadSchema(db, GEOMETRIES_TABLE_NAME)
 }
 
-func (t *GeometriesTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
+func (t *GeometriesTable) InitializeTable(ctx context.Context, db *sql.DB) error {
 
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
-func (t *GeometriesTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *GeometriesTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *GeometriesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *GeometriesTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	is_alt := alt.IsAlt(f)
 
@@ -127,16 +139,10 @@ func (t *GeometriesTable) IndexFeature(ctx context.Context, db sqlite.Database, 
 
 	lastmod := properties.LastModified(f)
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.Begin()
 
 	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
-
-	if err != nil {
-		return BeginTransactionError(t, err)
+		return database.BeginTransactionError(t, err)
 	}
 
 	geojson_geom, err := geometry.Geometry(f)
@@ -158,7 +164,7 @@ func (t *GeometriesTable) IndexFeature(ctx context.Context, db sqlite.Database, 
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -168,13 +174,13 @@ func (t *GeometriesTable) IndexFeature(ctx context.Context, db sqlite.Database, 
 	_, err = stmt.Exec(id, is_alt, alt_label, geom_type, lastmod)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil

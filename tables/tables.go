@@ -3,17 +3,22 @@ package tables
 import (
 	"bufio"
 	"bytes"
+	"database/sql"
 	"embed"
 	"fmt"
 	"text/template"
+
+	"github.com/sfomuseum/go-database"
 )
 
 //go:embed *.schema
 var fs embed.FS
 
-func LoadSchema(engine string, table_name string) (string, error) {
+func LoadSchema(db *sql.DB, table_name string) (string, error) {
 
-	fname := fmt.Sprintf("%s.%s.schema", table_name, engine)
+	driver := database.Driver(db)
+
+	fname := fmt.Sprintf("%s.%s.schema", table_name, driver)
 
 	data, err := fs.ReadFile(fname)
 

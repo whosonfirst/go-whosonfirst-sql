@@ -56,9 +56,9 @@ func (t *AncestorsTable) Name() string {
 	return t.name
 }
 
-func (t *AncestorsTable) Schema() string {
-	schema, _ := LoadSchema("sqlite", ANCESTORS_TABLE_NAME)
-	return schema
+func (t *AncestorsTable) Schema(db *sql.DB) (string, error) {
+	return LoadSchema(db, ANCESTORS_TABLE_NAME)
+
 }
 
 func (t *AncestorsTable) InitializeTable(ctx context.Context, db *sql.DB) error {
@@ -78,7 +78,7 @@ func (t *AncestorsTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte)
 	id, err := properties.Id(f)
 
 	if err != nil {
-		return database.MissingPropertyError(t, "id", err)
+		return MissingPropertyError(t, "id", err)
 	}
 
 	tx, err := db.Begin()

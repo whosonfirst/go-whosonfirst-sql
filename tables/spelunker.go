@@ -1,5 +1,16 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+	"github.com/whosonfirst/go-whosonfirst-spelunker/document"	
+)
+
 const SPELUNKER_TABLE_NAME string = "spelunker"
 
 type SpelunkerTableOptions struct {
@@ -18,12 +29,13 @@ func DefaultSpelunkerTableOptions() (*SpelunkerTableOptions, error) {
 }
 
 type SpelunkerTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name    string
 	options *SpelunkerTableOptions
 }
 
-func NewSpelunkerTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewSpelunkerTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	opts, err := DefaultSpelunkerTableOptions()
 
@@ -34,7 +46,7 @@ func NewSpelunkerTableWithDatabase(ctx context.Context, db sqlite.Database) (sql
 	return NewSpelunkerTableWithDatabaseAndOptions(ctx, db, opts)
 }
 
-func NewSpelunkerTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Database, opts *SpelunkerTableOptions) (sqlite.Table, error) {
+func NewSpelunkerTableWithDatabaseAndOptions(ctx context.Context, db *sql.DB, opts *SpelunkerTableOptions) (database.Table, error) {
 
 	t, err := NewSpelunkerTableWithOptions(ctx, opts)
 
@@ -51,7 +63,7 @@ func NewSpelunkerTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Data
 	return t, nil
 }
 
-func NewSpelunkerTable(ctx context.Context) (sqlite.Table, error) {
+func NewSpelunkerTable(ctx context.Context) (database.Table, error) {
 
 	opts, err := DefaultSpelunkerTableOptions()
 
@@ -62,10 +74,10 @@ func NewSpelunkerTable(ctx context.Context) (sqlite.Table, error) {
 	return NewSpelunkerTableWithOptions(ctx, opts)
 }
 
-func NewSpelunkerTableWithOptions(ctx context.Context, opts *SpelunkerTableOptions) (sqlite.Table, error) {
+func NewSpelunkerTableWithOptions(ctx context.Context, opts *SpelunkerTableOptions) (database.Table, error) {
 
 	t := SpelunkerTable{
-		name:    sql_tables.SPELUNKER_TABLE_NAME,
+		name:    SPELUNKER_TABLE_NAME,
 		options: opts,
 	}
 
@@ -76,21 +88,19 @@ func (t *SpelunkerTable) Name() string {
 	return t.name
 }
 
-func (t *SpelunkerTable) Schema() string {
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.SPELUNKER_TABLE_NAME)
-	return schema
+func (t *SpelunkerTable) Schema(db *sql.DB) (string, error) {
+	return LoadSchema(db, SPELUNKER_TABLE_NAME)
 }
 
-func (t *SpelunkerTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
-
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+func (t *SpelunkerTable) InitializeTable(ctx context.Context, db *sql.DB) error {
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
-func (t *SpelunkerTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *SpelunkerTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *SpelunkerTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *SpelunkerTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	is_alt := alt.IsAlt(f)
 
@@ -129,16 +139,10 @@ func (t *SpelunkerTable) IndexFeature(ctx context.Context, db sqlite.Database, f
 		return fmt.Errorf("Failed to prepare spelunker document, %w", err)
 	}
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.Begin()
 
 	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
-
-	if err != nil {
-		return BeginTransactionError(t, err)
+		return database.BeginTransactionError(t, err)
 	}
 
 	sql := fmt.Sprintf(`INSERT OR REPLACE INTO %s (
@@ -150,7 +154,7 @@ func (t *SpelunkerTable) IndexFeature(ctx context.Context, db sqlite.Database, f
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -160,13 +164,13 @@ func (t *SpelunkerTable) IndexFeature(ctx context.Context, db sqlite.Database, f
 	_, err = stmt.Exec(id, str_doc, source, is_alt, alt_label, lastmod)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil

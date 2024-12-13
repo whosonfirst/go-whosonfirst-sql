@@ -19,43 +19,20 @@ func init() {
 
 type Table interface {
 	Name() string
-	Schema() string
+	Schema(*sql.DB) (string, error)
 	InitializeTable(context.Context, *sql.DB) error
 	IndexRecord(context.Context, *sql.DB, interface{}) error
 }
 
 func HasTable(ctx context.Context, db *sql.DB, table_name string) (bool, error) {
 
-	has_table := false
-
-	// TBD... how to derive database engine...
-
-	sql := "SELECT name FROM sqlite_master WHERE type='table'"
-
-	rows, err := db.QueryContext(ctx, sql)
-
-	if err != nil {
-		return false, fmt.Errorf("Failed to query sqlite_master, %w", err)
+	switch Driver(db) {
+	case SQLITE_DRIVER:
+		return hasSQLiteTable(ctx, db, table_name)
+	default:
+		return false, fmt.Errorf("Unhandled or unsupported database driver %s", DriverTypeOf(db))
 	}
 
-	defer rows.Close()
-
-	for rows.Next() {
-
-		var name string
-		err := rows.Scan(&name)
-
-		if err != nil {
-			return false, fmt.Errorf("Failed scan table name, %w", err)
-		}
-
-		if name == table_name {
-			has_table = true
-			break
-		}
-	}
-
-	return has_table, nil
 }
 
 func CreateTableIfNecessary(ctx context.Context, db *sql.DB, t Table) error {
@@ -74,7 +51,7 @@ func CreateTableIfNecessary(ctx context.Context, db *sql.DB, t Table) error {
 
 	if create {
 
-		sql := t.Schema()
+		sql, err := t.Schema(db)
 
 		if err != nil {
 			return err

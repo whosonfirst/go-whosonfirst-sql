@@ -14,11 +14,6 @@ func InitializeTableError(t Table, err error) error {
 	return WrapError(t, fmt.Errorf("Failed to initialize database table, %w", err))
 }
 
-// MissingPropertyError returns a new error with a default message for problems deriving a given property ('prop') from a record, wrapping 'err' and prepending with the value of 't's Name() method.
-func MissingPropertyError(t Table, prop string, err error) error {
-	return WrapError(t, fmt.Errorf("Failed to determine value for '%s' property, %w", prop, err))
-}
-
 // DatabaseConnectionError returns a new error with a default message for database connection problems wrapping 'err' and prepending with the value of 't's Name() method.
 func DatabaseConnectionError(t Table, err error) error {
 	return WrapError(t, fmt.Errorf("Failed to establish database connection, %w", err))

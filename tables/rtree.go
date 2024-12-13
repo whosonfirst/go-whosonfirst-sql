@@ -1,5 +1,18 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/paulmach/orb"
+	"github.com/paulmach/orb/encoding/wkt"	
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+	"github.com/whosonfirst/go-whosonfirst-feature/geometry"	
+)
+
 const RTREE_TABLE_NAME string = "rtree"
 
 type RTreeTableOptions struct {
@@ -16,12 +29,13 @@ func DefaultRTreeTableOptions() (*RTreeTableOptions, error) {
 }
 
 type RTreeTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name    string
 	options *RTreeTableOptions
 }
 
-func NewRTreeTable(ctx context.Context) (sqlite.Table, error) {
+func NewRTreeTable(ctx context.Context) (database.Table, error) {
 
 	opts, err := DefaultRTreeTableOptions()
 
@@ -32,17 +46,17 @@ func NewRTreeTable(ctx context.Context) (sqlite.Table, error) {
 	return NewRTreeTableWithOptions(ctx, opts)
 }
 
-func NewRTreeTableWithOptions(ctx context.Context, opts *RTreeTableOptions) (sqlite.Table, error) {
+func NewRTreeTableWithOptions(ctx context.Context, opts *RTreeTableOptions) (database.Table, error) {
 
 	t := RTreeTable{
-		name:    sql_tables.RTREE_TABLE_NAME,
+		name:    RTREE_TABLE_NAME,
 		options: opts,
 	}
 
 	return &t, nil
 }
 
-func NewRTreeTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewRTreeTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	opts, err := DefaultRTreeTableOptions()
 
@@ -53,7 +67,7 @@ func NewRTreeTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.
 	return NewRTreeTableWithDatabaseAndOptions(ctx, db, opts)
 }
 
-func NewRTreeTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Database, opts *RTreeTableOptions) (sqlite.Table, error) {
+func NewRTreeTableWithDatabaseAndOptions(ctx context.Context, db *sql.DB, opts *RTreeTableOptions) (database.Table, error) {
 
 	t, err := NewRTreeTableWithOptions(ctx, opts)
 
@@ -74,7 +88,7 @@ func (t *RTreeTable) Name() string {
 	return t.name
 }
 
-func (t *RTreeTable) Schema() string {
+func (t *RTreeTable) Schema(db *sql.DB) (string, error) {
 
 	/*
 
@@ -93,20 +107,19 @@ func (t *RTreeTable) Schema() string {
 		Note: Auxiliary columns must come at the end of a table definition
 	*/
 
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.RTREE_TABLE_NAME)
-	return schema
+	return LoadSchema(db, RTREE_TABLE_NAME)
 }
 
-func (t *RTreeTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
+func (t *RTreeTable) InitializeTable(ctx context.Context, db *sql.DB) error {
 
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
-func (t *RTreeTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *RTreeTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *RTreeTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *RTreeTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	is_alt := alt.IsAlt(f) // this returns a boolean which is interpreted as a float by SQLite
 
@@ -156,13 +169,7 @@ func (t *RTreeTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 
 	orb_geom := geojson_geom.Geometry()
 
-	conn, err := db.Conn(ctx)
-
-	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
+	tx, err := db.Begin()
 
 	if err != nil {
 		return err
@@ -177,7 +184,7 @@ func (t *RTreeTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -191,7 +198,7 @@ func (t *RTreeTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 		mp = []orb.Polygon{orb_geom.(orb.Polygon)}
 	default:
 		// This should never happen (we check above) but just in case...
-		return WrapError(t, fmt.Errorf("Invalid or unsupported geometry type, %s", geom_type))
+		return database.WrapError(t, fmt.Errorf("Invalid or unsupported geometry type, %s", geom_type))
 	}
 
 	for _, poly := range mp {
@@ -210,14 +217,14 @@ func (t *RTreeTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 		_, err = stmt.Exec(sw.X(), ne.X(), sw.Y(), ne.Y(), wof_id, is_alt, alt_label, enc_geom, lastmod)
 
 		if err != nil {
-			return ExecuteStatementError(t, err)
+			return database.ExecuteStatementError(t, err)
 		}
 	}
 
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil

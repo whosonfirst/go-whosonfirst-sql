@@ -1,9 +1,20 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+)
+
 const CONCORDANCES_TABLE_NAME string = "concordances"
 
 type ConcordancesTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name string
 }
 
@@ -14,7 +25,7 @@ type ConcordancesRow struct {
 	LastModified int64
 }
 
-func NewConcordancesTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewConcordancesTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	t, err := NewConcordancesTable(ctx)
 
@@ -25,16 +36,16 @@ func NewConcordancesTableWithDatabase(ctx context.Context, db sqlite.Database) (
 	err = t.InitializeTable(ctx, db)
 
 	if err != nil {
-		return nil, InitializeTableError(t, err)
+		return nil, database.InitializeTableError(t, err)
 	}
 
 	return t, nil
 }
 
-func NewConcordancesTable(ctx context.Context) (sqlite.Table, error) {
+func NewConcordancesTable(ctx context.Context) (database.Table, error) {
 
 	t := ConcordancesTable{
-		name: sql_tables.CONCORDANCES_TABLE_NAME,
+		name: CONCORDANCES_TABLE_NAME,
 	}
 
 	return &t, nil
@@ -44,21 +55,19 @@ func (t *ConcordancesTable) Name() string {
 	return t.name
 }
 
-func (t *ConcordancesTable) Schema() string {
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.CONCORDANCES_TABLE_NAME)
-	return schema
+func (t *ConcordancesTable) Schema(db *sql.DB) (string, error) {
+	return LoadSchema(db, CONCORDANCES_TABLE_NAME)
 }
 
-func (t *ConcordancesTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
-
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+func (t *ConcordancesTable) InitializeTable(ctx context.Context, db *sql.DB) error {
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
-func (t *ConcordancesTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *ConcordancesTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *ConcordancesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *ConcordancesTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	if alt.IsAlt(f) {
 		return nil
@@ -70,16 +79,10 @@ func (t *ConcordancesTable) IndexFeature(ctx context.Context, db sqlite.Database
 		return MissingPropertyError(t, "id", err)
 	}
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.Begin()
 
 	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
-
-	if err != nil {
-		return BeginTransactionError(t, err)
+		return database.BeginTransactionError(t, err)
 	}
 
 	sql := fmt.Sprintf(`DELETE FROM %s WHERE id = ?`, t.Name())
@@ -87,7 +90,7 @@ func (t *ConcordancesTable) IndexFeature(ctx context.Context, db sqlite.Database
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -95,7 +98,7 @@ func (t *ConcordancesTable) IndexFeature(ctx context.Context, db sqlite.Database
 	_, err = stmt.Exec(id)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	concordances := properties.Concordances(f)
@@ -112,7 +115,7 @@ func (t *ConcordancesTable) IndexFeature(ctx context.Context, db sqlite.Database
 		stmt, err := tx.Prepare(sql)
 
 		if err != nil {
-			return PrepareStatementError(t, err)
+			return database.PrepareStatementError(t, err)
 		}
 
 		defer stmt.Close()
@@ -120,14 +123,14 @@ func (t *ConcordancesTable) IndexFeature(ctx context.Context, db sqlite.Database
 		_, err = stmt.Exec(id, other_id, other_source, lastmod)
 
 		if err != nil {
-			return ExecuteStatementError(t, err)
+			return database.ExecuteStatementError(t, err)
 		}
 	}
 
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil

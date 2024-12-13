@@ -1,5 +1,18 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+	"strconv"
+	
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+	"github.com/whosonfirst/go-whosonfirst-spr/v2"	
+)
+
 const SPR_TABLE_NAME string = "spr"
 
 type SPRTableOptions struct {
@@ -16,12 +29,13 @@ func DefaultSPRTableOptions() (*SPRTableOptions, error) {
 }
 
 type SPRTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name    string
 	options *SPRTableOptions
 }
 
-func NewSPRTable(ctx context.Context) (sqlite.Table, error) {
+func NewSPRTable(ctx context.Context) (database.Table, error) {
 
 	opts, err := DefaultSPRTableOptions()
 
@@ -32,17 +46,17 @@ func NewSPRTable(ctx context.Context) (sqlite.Table, error) {
 	return NewSPRTableWithOptions(ctx, opts)
 }
 
-func NewSPRTableWithOptions(ctx context.Context, opts *SPRTableOptions) (sqlite.Table, error) {
+func NewSPRTableWithOptions(ctx context.Context, opts *SPRTableOptions) (database.Table, error) {
 
 	t := SPRTable{
-		name:    sql_tables.SPR_TABLE_NAME,
+		name:    SPR_TABLE_NAME,
 		options: opts,
 	}
 
 	return &t, nil
 }
 
-func NewSPRTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewSPRTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	opts, err := DefaultSPRTableOptions()
 
@@ -53,7 +67,7 @@ func NewSPRTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Ta
 	return NewSPRTableWithDatabaseAndOptions(ctx, db, opts)
 }
 
-func NewSPRTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Database, opts *SPRTableOptions) (sqlite.Table, error) {
+func NewSPRTableWithDatabaseAndOptions(ctx context.Context, db *sql.DB, opts *SPRTableOptions) (database.Table, error) {
 
 	t, err := NewSPRTableWithOptions(ctx, opts)
 
@@ -70,25 +84,23 @@ func NewSPRTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Database, 
 	return t, nil
 }
 
-func (t *SPRTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
-
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+func (t *SPRTable) InitializeTable(ctx context.Context, db *sql.DB) error {
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
 func (t *SPRTable) Name() string {
 	return t.name
 }
 
-func (t *SPRTable) Schema() string {
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.SPR_TABLE_NAME)
-	return schema
+func (t *SPRTable) Schema(db *sql.DB) (string, error) {
+	return LoadSchema(db, SPR_TABLE_NAME)
 }
 
-func (t *SPRTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *SPRTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *SPRTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *SPRTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	is_alt := alt.IsAlt(f)
 
@@ -112,7 +124,7 @@ func (t *SPRTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byt
 		_s, err := spr.WhosOnFirstAltSPR(f)
 
 		if err != nil {
-			return WrapError(t, fmt.Errorf("Failed to generate SPR for alt geom, %w", err))
+			return database.WrapError(t, fmt.Errorf("Failed to generate SPR for alt geom, %w", err))
 		}
 
 		s = _s
@@ -122,7 +134,7 @@ func (t *SPRTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byt
 		_s, err := spr.WhosOnFirstSPR(f)
 
 		if err != nil {
-			return WrapError(t, fmt.Errorf("Failed to SPR, %w", err))
+			return database.WrapError(t, fmt.Errorf("Failed to SPR, %w", err))
 		}
 
 		s = _s
@@ -187,22 +199,16 @@ func (t *SPRTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byt
 		s.LastModified(),
 	}
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.Begin()
 
 	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
-
-	if err != nil {
-		return BeginTransactionError(t, err)
+		return database.BeginTransactionError(t, err)
 	}
 
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -210,13 +216,13 @@ func (t *SPRTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byt
 	_, err = stmt.Exec(args...)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil

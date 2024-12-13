@@ -1,5 +1,16 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/tidwall/gjson"
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+)
+
 const PROPERTIES_TABLE_NAME string = "properties"
 
 type PropertiesTableOptions struct {
@@ -16,7 +27,8 @@ func DefaultPropertiesTableOptions() (*PropertiesTableOptions, error) {
 }
 
 type PropertiesTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name    string
 	options *PropertiesTableOptions
 }
@@ -27,7 +39,7 @@ type PropertiesRow struct {
 	LastModified int64
 }
 
-func NewPropertiesTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewPropertiesTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	opts, err := DefaultPropertiesTableOptions()
 
@@ -38,7 +50,7 @@ func NewPropertiesTableWithDatabase(ctx context.Context, db sqlite.Database) (sq
 	return NewPropertiesTableWithDatabaseAndOptions(ctx, db, opts)
 }
 
-func NewPropertiesTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Database, opts *PropertiesTableOptions) (sqlite.Table, error) {
+func NewPropertiesTableWithDatabaseAndOptions(ctx context.Context, db *sql.DB, opts *PropertiesTableOptions) (database.Table, error) {
 
 	t, err := NewPropertiesTableWithOptions(ctx, opts)
 
@@ -49,13 +61,13 @@ func NewPropertiesTableWithDatabaseAndOptions(ctx context.Context, db sqlite.Dat
 	err = t.InitializeTable(ctx, db)
 
 	if err != nil {
-		return nil, InitializeTableError(t, err)
+		return nil, database.InitializeTableError(t, err)
 	}
 
 	return t, nil
 }
 
-func NewPropertiesTable(ctx context.Context) (sqlite.Table, error) {
+func NewPropertiesTable(ctx context.Context) (database.Table, error) {
 
 	opts, err := DefaultPropertiesTableOptions()
 
@@ -66,10 +78,10 @@ func NewPropertiesTable(ctx context.Context) (sqlite.Table, error) {
 	return NewPropertiesTableWithOptions(ctx, opts)
 }
 
-func NewPropertiesTableWithOptions(ctx context.Context, opts *PropertiesTableOptions) (sqlite.Table, error) {
+func NewPropertiesTableWithOptions(ctx context.Context, opts *PropertiesTableOptions) (database.Table, error) {
 
 	t := PropertiesTable{
-		name:    sql_tables.PROPERTIES_TABLE_NAME,
+		name:    PROPERTIES_TABLE_NAME,
 		options: opts,
 	}
 
@@ -80,21 +92,20 @@ func (t *PropertiesTable) Name() string {
 	return t.name
 }
 
-func (t *PropertiesTable) Schema() string {
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.PROPERTIES_TABLE_NAME)
-	return schema
+func (t *PropertiesTable) Schema(db *sql.DB) (string, error) {
+	return LoadSchema(db, PROPERTIES_TABLE_NAME)
 }
 
-func (t *PropertiesTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
+func (t *PropertiesTable) InitializeTable(ctx context.Context, db *sql.DB) error {
 
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
-func (t *PropertiesTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *PropertiesTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *PropertiesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *PropertiesTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	is_alt := alt.IsAlt(f)
 
@@ -116,16 +127,10 @@ func (t *PropertiesTable) IndexFeature(ctx context.Context, db sqlite.Database, 
 
 	lastmod := properties.LastModified(f)
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.Begin()
 
 	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
-
-	if err != nil {
-		return BeginTransactionError(t, err)
+		return database.BeginTransactionError(t, err)
 	}
 
 	sql := fmt.Sprintf(`INSERT OR REPLACE INTO %s (
@@ -137,7 +142,7 @@ func (t *PropertiesTable) IndexFeature(ctx context.Context, db sqlite.Database, 
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -148,13 +153,13 @@ func (t *PropertiesTable) IndexFeature(ctx context.Context, db sqlite.Database, 
 	_, err = stmt.Exec(id, str_props, is_alt, alt_label, lastmod)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil

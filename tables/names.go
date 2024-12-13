@@ -1,9 +1,21 @@
 package tables
 
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/sfomuseum/go-database"
+	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/properties"
+	"github.com/whosonfirst/go-whosonfirst-names/tags"	
+)
+
 const NAMES_TABLE_NAME string = "names"
 
 type NamesTable struct {
-	features.FeatureTable
+	database.Table
+	FeatureTable
 	name string
 }
 
@@ -22,7 +34,7 @@ type NamesRow struct {
 	LastModified int64
 }
 
-func NewNamesTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.Table, error) {
+func NewNamesTableWithDatabase(ctx context.Context, db *sql.DB) (database.Table, error) {
 
 	t, err := NewNamesTable(ctx)
 
@@ -33,16 +45,16 @@ func NewNamesTableWithDatabase(ctx context.Context, db sqlite.Database) (sqlite.
 	err = t.InitializeTable(ctx, db)
 
 	if err != nil {
-		return nil, InitializeTableError(t, err)
+		return nil, database.InitializeTableError(t, err)
 	}
 
 	return t, nil
 }
 
-func NewNamesTable(ctx context.Context) (sqlite.Table, error) {
+func NewNamesTable(ctx context.Context) (database.Table, error) {
 
 	t := NamesTable{
-		name: sql_tables.NAMES_TABLE_NAME,
+		name: NAMES_TABLE_NAME,
 	}
 
 	return &t, nil
@@ -52,21 +64,20 @@ func (t *NamesTable) Name() string {
 	return t.name
 }
 
-func (t *NamesTable) Schema() string {
-	schema, _ := sql_tables.LoadSchema("sqlite", sql_tables.NAMES_TABLE_NAME)
-	return schema
+func (t *NamesTable) Schema(db *sql.DB) (string, error) {
+	return LoadSchema(db, NAMES_TABLE_NAME)
 }
 
-func (t *NamesTable) InitializeTable(ctx context.Context, db sqlite.Database) error {
+func (t *NamesTable) InitializeTable(ctx context.Context, db *sql.DB) error {
 
-	return sqlite.CreateTableIfNecessary(ctx, db, t)
+	return database.CreateTableIfNecessary(ctx, db, t)
 }
 
-func (t *NamesTable) IndexRecord(ctx context.Context, db sqlite.Database, i interface{}) error {
+func (t *NamesTable) IndexRecord(ctx context.Context, db *sql.DB, i interface{}) error {
 	return t.IndexFeature(ctx, db, i.([]byte))
 }
 
-func (t *NamesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []byte) error {
+func (t *NamesTable) IndexFeature(ctx context.Context, db *sql.DB, f []byte) error {
 
 	if alt.IsAlt(f) {
 		return nil
@@ -89,16 +100,10 @@ func (t *NamesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 	lastmod := properties.LastModified(f)
 	names := properties.Names(f)
 
-	conn, err := db.Conn(ctx)
+	tx, err := db.Begin()
 
 	if err != nil {
-		return DatabaseConnectionError(t, err)
-	}
-
-	tx, err := conn.Begin()
-
-	if err != nil {
-		return BeginTransactionError(t, err)
+		return database.BeginTransactionError(t, err)
 	}
 
 	sql := fmt.Sprintf(`DELETE FROM %s WHERE id = ?`, t.Name())
@@ -106,7 +111,7 @@ func (t *NamesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 	stmt, err := tx.Prepare(sql)
 
 	if err != nil {
-		return PrepareStatementError(t, err)
+		return database.PrepareStatementError(t, err)
 	}
 
 	defer stmt.Close()
@@ -114,7 +119,7 @@ func (t *NamesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 	_, err = stmt.Exec(id)
 
 	if err != nil {
-		return ExecuteStatementError(t, err)
+		return database.ExecuteStatementError(t, err)
 	}
 
 	for tag, names := range names {
@@ -122,7 +127,7 @@ func (t *NamesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 		lt, err := tags.NewLangTag(tag)
 
 		if err != nil {
-			return WrapError(t, fmt.Errorf("Failed to create new language tag for '%s', %w", tag, err))
+			return database.WrapError(t, fmt.Errorf("Failed to create new language tag for '%s', %w", tag, err))
 		}
 
 		for _, n := range names {
@@ -146,7 +151,7 @@ func (t *NamesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 			stmt, err := tx.Prepare(sql)
 
 			if err != nil {
-				return PrepareStatementError(t, err)
+				return database.PrepareStatementError(t, err)
 			}
 
 			defer stmt.Close()
@@ -154,7 +159,7 @@ func (t *NamesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 			_, err = stmt.Exec(id, pt, co, lt.Language(), lt.ExtLang(), lt.Script(), lt.Region(), lt.Variant(), lt.Extension(), lt.PrivateUse(), n, lastmod)
 
 			if err != nil {
-				return ExecuteStatementError(t, err)
+				return database.ExecuteStatementError(t, err)
 			}
 
 		}
@@ -163,7 +168,7 @@ func (t *NamesTable) IndexFeature(ctx context.Context, db sqlite.Database, f []b
 	err = tx.Commit()
 
 	if err != nil {
-		return CommitTransactionError(t, err)
+		return database.CommitTransactionError(t, err)
 	}
 
 	return nil
