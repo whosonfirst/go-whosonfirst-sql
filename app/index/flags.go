@@ -44,6 +44,7 @@ var index_relations bool
 var relations_uri string
 
 var procs int
+var verbose bool
 
 func DefaultFlagSet() *flag.FlagSet {
 
@@ -86,5 +87,6 @@ func DefaultFlagSet() *flag.FlagSet {
 
 	fs.IntVar(&procs, "processes", (runtime.NumCPU() * 2), "The number of concurrent processes to index data with")
 
+	fs.BoolVar(&verbose, "verbose", false, "Enable verbose (debug) logging")
 	return fs
 }

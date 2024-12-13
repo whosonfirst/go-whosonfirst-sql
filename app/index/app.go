@@ -30,6 +30,11 @@ func RunWithFlagSet(ctx context.Context, fs *flag.FlagSet) error {
 
 	flagset.Parse(fs)
 
+	if verbose {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+		slog.Debug("Verbose logging enabled")
+	}
+
 	runtime.GOMAXPROCS(procs)
 
 	if spatial_tables {
@@ -105,15 +110,15 @@ func RunWithFlagSet(ctx context.Context, fs *flag.FlagSet) error {
 
 	}
 
-	if live_hard {
+	switch database.Driver(db) {
+	case "sqlite":
 
-		/*
-			err = sqlite.LiveHardDieFast(ctx, db)
+		pragma := database.DefaultSQLitePragma()
+		err := database.ConfigureSQLitePragma(ctx, db, pragma)
 
-			if err != nil {
-				return fmt.Errorf("Unable to live hard and die fast so just dying fast instead, because %v", err)
-			}
-		*/
+		if err != nil {
+			return fmt.Errorf("Failed to configure SQLite pragma, %w", err)
+		}
 	}
 
 	to_index := make([]database.Table, 0)

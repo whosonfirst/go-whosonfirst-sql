@@ -57,10 +57,13 @@ func NewIndexer(opts *IndexerOptions) (*Indexer, error) {
 
 	iterator_cb := func(ctx context.Context, path string, r io.ReadSeeker, args ...interface{}) error {
 
+		logger := slog.Default()
+		logger = logger.With("path", path)
+
 		record, err := record_func(ctx, path, r, args...)
 
 		if err != nil {
-			// logger.Printf("Failed to load record (%s) because %s", path, err)
+			logger.Error("Failed to load record", "error", err)
 			return err
 		}
 
@@ -73,12 +76,16 @@ func NewIndexer(opts *IndexerOptions) (*Indexer, error) {
 
 		for _, t := range tables {
 
+			logger := slog.Default()
+			logger = logger.With("path", path)
+			logger = logger.With("table", t.Name())
+
 			t1 := time.Now()
 
 			err = t.IndexRecord(ctx, db, record)
 
 			if err != nil {
-				// logger.Printf("Failed to index feature (%s) in '%s' table because %s", path, t.Name(), err)
+				logger.Error("Failed to index feature", "error", err)
 				return err
 			}
 
@@ -104,6 +111,7 @@ func NewIndexer(opts *IndexerOptions) (*Indexer, error) {
 			err := opts.PostIndexFunc(ctx, db, tables, record)
 
 			if err != nil {
+				logger.Error("Post-index function failed", "error", err)
 				return err
 			}
 		}

@@ -3,6 +3,7 @@ module github.com/whosonfirst/go-whosonfirst-sql
 go 1.23.3
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/paulmach/orb v0.11.1
 	github.com/sfomuseum/go-database v0.0.6
 	github.com/sfomuseum/go-flags v0.10.0
