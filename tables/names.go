@@ -8,7 +8,7 @@ import (
 	"github.com/sfomuseum/go-database"
 	"github.com/whosonfirst/go-whosonfirst-feature/alt"
 	"github.com/whosonfirst/go-whosonfirst-feature/properties"
-	"github.com/whosonfirst/go-whosonfirst-names/tags"	
+	"github.com/whosonfirst/go-whosonfirst-names/tags"
 )
 
 const NAMES_TABLE_NAME string = "names"

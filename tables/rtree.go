@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	"github.com/paulmach/orb"
-	"github.com/paulmach/orb/encoding/wkt"	
+	"github.com/paulmach/orb/encoding/wkt"
 	"github.com/sfomuseum/go-database"
 	"github.com/whosonfirst/go-whosonfirst-feature/alt"
+	"github.com/whosonfirst/go-whosonfirst-feature/geometry"
 	"github.com/whosonfirst/go-whosonfirst-feature/properties"
-	"github.com/whosonfirst/go-whosonfirst-feature/geometry"	
 )
 
 const RTREE_TABLE_NAME string = "rtree"

@@ -8,7 +8,7 @@ import (
 	"github.com/sfomuseum/go-database"
 	"github.com/whosonfirst/go-whosonfirst-feature/alt"
 	"github.com/whosonfirst/go-whosonfirst-feature/properties"
-	"github.com/whosonfirst/go-whosonfirst-spelunker/document"	
+	"github.com/whosonfirst/go-whosonfirst-spelunker/document"
 )
 
 const SPELUNKER_TABLE_NAME string = "spelunker"

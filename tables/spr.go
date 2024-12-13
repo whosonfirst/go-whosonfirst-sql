@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"strconv"
-	
+	"strings"
+
 	"github.com/sfomuseum/go-database"
 	"github.com/whosonfirst/go-whosonfirst-feature/alt"
 	"github.com/whosonfirst/go-whosonfirst-feature/properties"
-	"github.com/whosonfirst/go-whosonfirst-spr/v2"	
+	"github.com/whosonfirst/go-whosonfirst-spr/v2"
 )
 
 const SPR_TABLE_NAME string = "spr"
